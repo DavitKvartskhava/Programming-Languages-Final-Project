@@ -3,22 +3,79 @@
 #include<string.h>
 #include <errno.h>
 
-const int ARRAY_SIZE = 1000000000;
+const int ARRAY_SIZE = 2000000;
 // const int BUFFER_SIZE = 1024*1024;
-const int CHUNK_SIZE = 9;
+const int CHUNK_SIZE = 10;
+
+/////////////////////////////////
+////////HASHMAP//////////////////
+struct node{
+    long long key;
+    int val;
+    struct node *next;
+};
+struct table{
+    int size;
+    struct node **list;
+};
+struct table *createTable(int size){
+    struct table *t = (struct table*)malloc(sizeof(struct table));
+    t->size = size;
+    t->list = (struct node**)malloc(sizeof(struct node*)*size);
+    int i;
+    for(i=0;i<size;i++)
+        t->list[i] = NULL;
+    return t;
+}
+int hashCode(struct table *t,int key){
+    if(key<0)
+        return -(key%t->size);
+    return key%t->size;
+}
+void insert(struct table *t,int key,int val){
+    int pos = hashCode(t,key);
+    struct node *list = t->list[pos];
+    struct node *newNode = (struct node*)malloc(sizeof(struct node));
+    struct node *temp = list;
+    while(temp){
+        if(temp->key==key){
+            temp->val = val;
+            return;
+        }
+        temp = temp->next;
+    }
+    newNode->key = key;
+    newNode->val = val;
+    newNode->next = list;
+    t->list[pos] = newNode;
+}
+int search(struct table *t,int key){
+    int pos = hashCode(t,key);
+    struct node *list = t->list[pos];
+    struct node *temp = list;
+    while(temp){
+        if(temp->key==key){
+            return temp->val;
+        }
+        temp = temp->next;
+    }
+    return -1;
+}
+/////////////////////////////////
+/////////////////////////////////
 
 int int_cmp(const void *a, const void *b){
-	const int *int_a = (const int *)a;
-	const int *int_b = (const int *)b;
+	const long long *int_a = (const long long *)a;
+	const long long *int_b = (const long long *)b;
 	
 	return *int_a - *int_b;
 }
 
 char rem[20];
 int rem_SIZE;
-int k;
+// int k;
 
-void convert(long long *arr, char *buffer, int buffer_size){
+void convert(struct table *t, char *buffer, int buffer_size){
 	long long next_int = 0;
 	long coeff = 1;
 	char curr_rem[12];
@@ -33,7 +90,7 @@ void convert(long long *arr, char *buffer, int buffer_size){
 	while(i > 0) {
 		i--;
 		if(buffer[i] == '\n'){
-			arr[k++]= next_int;
+			insert(t, next_int, 1);
 			next_int = 0;
 			coeff = 1;
 		} else {
@@ -61,7 +118,7 @@ void convert(long long *arr, char *buffer, int buffer_size){
 			}
 		}
 	}
-	arr[k++] = next_int;
+	insert(t, next_int, 1);
 
 	// ////////////////
 	// Based on remainder, fill rem array
@@ -73,7 +130,7 @@ void convert(long long *arr, char *buffer, int buffer_size){
 	rem_SIZE = l; //l is incremented already
 }
 
-void read_file(long long *arr, char *filename){
+void read_file(struct table *t, char *filename){
 	FILE *fs;
 	char *buffer;
 
@@ -98,7 +155,7 @@ void read_file(long long *arr, char *filename){
 
 	for(int i = 0; i < CHUNK_SIZE; i++){
 		if(fread(buffer, buffer_size, 1, fs) == 1) {
-			convert(arr, buffer, buffer_size);
+			convert(t, buffer, buffer_size);
 		} else {
 			printf("Gone wrong buddy\n");
 		}
@@ -114,18 +171,20 @@ void read_file(long long *arr, char *filename){
     	// 	printf("%c,", buffer[i]);
     	// }
     	// printf("]\n");
-    	convert(arr, buffer, remainder_size);
+    	convert(t, buffer, remainder_size);
     }
 
     fclose(fs);
 }
 
-long long *values, *keys;
+// long long *values, *keys;
 
 int main(int argc, char *argv[]){
 	char values_filename[128], keys_filename[128];
-	values = malloc(ARRAY_SIZE * sizeof(long long));
-	keys = malloc(ARRAY_SIZE * sizeof(long long));
+	// values = malloc(ARRAY_SIZE * sizeof(long long));
+	// keys = malloc(ARRAY_SIZE * sizeof(long long));
+
+	struct table *values = createTable(ARRAY_SIZE);
 
 	if(argc != 3){
 		fprintf(stderr, "enter both filenames, please\n");
@@ -134,10 +193,10 @@ int main(int argc, char *argv[]){
 		strcpy(values_filename, argv[1]);
 		strcpy(keys_filename, argv[2]);
 	}
-	k = 0;
+	// k = 0;
 	rem_SIZE = 0;
 	read_file(values, values_filename);
-	int line_count_values = k;
+	// int line_count_values = k;
 
 	// k=0;
 	// rem_SIZE = 0;
@@ -145,19 +204,33 @@ int main(int argc, char *argv[]){
 	// int line_count_keys = k;
 
 
-    for(int i = 0; i < k; i++){
-    	printf("%lld\n",values[i]);
-    }
+    // for(int i = 0; i < k; i++){
+    // 	printf("%lld\n",keys[i]);
+    // }
 
 	// printf("HELLO!!!%d", line_count_values);
 	// printf("HELLO!!!%d", line_count_keys);
 
-	// qsort(values, ARRAY_SIZE, sizeof(long long), int_cmp);
+	// qsort(values, line_count_values, sizeof(long long), int_cmp);
 
 	// int *index;
 	// for(int i = 0; i < line_count_keys; i++){
-	// 	index = bsearch(&keys[i], values, ARRAY_SIZE, sizeof(long long), int_cmp); // Maybe ARRAY_SIZE -> line_count_values
+	// 	// index = bsearch(&keys[i], values, line_count_values, sizeof(long long), int_cmp); // Maybe ARRAY_SIZE -> line_count_values
 
+	FILE *fptr;
+    long next_key;
+
+
+	if(!(fptr = fopen(keys_filename, "r"))){
+		fprintf(stderr, "error encounted while opening the file\n");
+	}
+
+	while(fscanf(fptr, "%ld", &next_key) != EOF){
+		if (search(values, next_key) != -1 ) {
+			printf("%ld\n", next_key);
+		}
+	}
+	fclose(fptr);
 	// 	if (index!=NULL){	
 
 	// 		printf("%d\n", *index);
