@@ -35,7 +35,7 @@ struct table *createTable(long size){
     t->list = (struct node**)malloc(sizeof(struct node*)*size);
     int i;
     for(i=0;i<size;i++)
-        t->list[i] = NULL;
+        t->list[i] = NULL; //could parallelize this
     return t;
 }
 int hashCode(struct table *t,long key){
@@ -205,7 +205,7 @@ int main(int argc, char *argv[]){
 
 	long next_key;
 
-	#pragma omp parallel for private(next_key)
+	#pragma omp parallel for private(next_key, values) //would this cause copying values?
     for(long i = 0; i < k; i++){
     	next_key = keys[i];
     	if (search(values, next_key) != -1 ) {

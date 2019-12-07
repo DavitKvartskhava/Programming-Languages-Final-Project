@@ -1,8 +1,12 @@
 /*By Davit Kvartskhava*/
-//Compile with the command gcc -fopenmp sort_load_search_fast.c -o out -std=c99 -O3
+////////////////////////
+//Compile with the command gcc sort_load_search_fast.c -o out -std=c99 -O3 (or -Ofast)
 //Run it with time ./out /cluster/home2/charliep/courses/cs440-languages/billions/1b-ints.dat /cluster/home2/charliep/courses/cs440-languages/billions/1b-search.dat > result.dat
 //For 1b integers, it's best to use HASH_SIZE = 1b*1.3
-//Buffer_SIZE = 65536 is recommended because it yields the best result.
+//Buffer_SIZE = 65536 is recommended because it yields the best results.
+//Result.dat and canon need to be sorted before compared with diff.
+
+/*Imports*/
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -27,7 +31,6 @@ int rem_SIZE;
 ///////////////////////////////////////////////////////////////////
 struct node{
     long key;
-    int val;
     struct node *next;
 };
 struct table{
@@ -49,42 +52,43 @@ int hashCode(struct table *t,long key){
     return key%t->size;
 }
 
-void insert(struct table *t,long key,int val){
+void insert(struct table *t,long key){
     int pos = hashCode(t,key);
     struct node *list = t->list[pos];
     struct node *newNode = (struct node*)malloc(sizeof(struct node));
     struct node *temp = list;
     while(temp){
         if(temp->key==key){
-            temp->val = val;
             return;
         }
         temp = temp->next;
     }
     newNode->key = key;
-    newNode->val = val;
     newNode->next = list;
     t->list[pos] = newNode;
 }
+
+//If successful return 1, else return -1
 int search(struct table *t, long key){
     int pos = hashCode(t,key);
     struct node *list = t->list[pos];
-    struct node *temp = list;
+    struct node *temp = t->list[pos];
+    // struct node *temp = t->list[pos];
     while(temp){
         if(temp->key==key){
-            return temp->val;
+            return 1;
         }
         temp = temp->next;
     }
     return -1;
 }
-/////////////////////////////////////////////////////////////////
 
+/* Converts the characters from buffer into longs and stores them in either hashmap or array*/
+// The buffer might include the characters that don't add up to one integer, so everything
+// before '\n' is stored in the remainder array.
 void convert(char *buffer, int buffer_size, bool write_to_arr){
 	long next_int = 0;
 	long coeff = 1;
-	char curr_rem[12];
-	int curr_rem_SIZE;
 	int i = buffer_size;
 	int l = 0;
 
@@ -98,7 +102,7 @@ void convert(char *buffer, int buffer_size, bool write_to_arr){
 			if(write_to_arr) {
 				keys[k++] = next_int;
 			} else {
-				insert(values, next_int, 1);
+				insert(values, next_int);
 			}	
 			next_int = 0;
 			coeff = 1;
@@ -131,7 +135,7 @@ void convert(char *buffer, int buffer_size, bool write_to_arr){
 	if(write_to_arr) {
 		keys[k++] = next_int;
 	} else {
-		insert(values, next_int, 1);
+		insert(values, next_int);
 	}
 
 	// Based on remainder, fill rem array
@@ -215,6 +219,6 @@ int main(int argc, char *argv[]){
 		}	
     }
 
-    free(keys);
-    free(values);
+ 	free(keys);
+	free(values);
 }
