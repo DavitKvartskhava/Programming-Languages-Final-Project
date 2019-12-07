@@ -1,21 +1,16 @@
-/*By Davit Kvartskhava*/
-//Compile with the command gcc -fopenmp sort_load_search_fast.c -o out -std=c99 -O3
-//Run it with time ./out /cluster/home2/charliep/courses/cs440-languages/billions/1b-ints.dat /cluster/home2/charliep/courses/cs440-languages/billions/1b-search.dat > result.dat
-//For 1b integers, it's best to use HASH_SIZE = 1b*1.3
-//Buffer_SIZE = 65536 is recommended because it yields the best result.
+#include <omp.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
 #include <errno.h>
 #include <stdbool.h>
 
+// const int ARRAY_SIZE = 1000000000;
+// const int HASH_SIZE = 1300000000;
+const int ARRAY_SIZE = 2000000;
+const int HASH_SIZE = 2600000;
 
-const int ARRAY_SIZE = 1000000000;
-const int HASH_SIZE = 1300000000;
-//const int ARRAY_SIZE = 2000000;
-//const int HASH_SIZE = 2600000;
-
-const int BUFFER_SIZE = 65536;
+const int BUFFER_SIZE = 32768;
 long k;
 struct table *values;
 long *keys;
@@ -159,15 +154,16 @@ void read_file(char *filename, bool write_to_arr){
 	//Buffer determined by file size. Remainder bytes also assigned below.
 
 	// long buffer_size = file_size/CHUNK_SIZE;
-	int num_chunk = file_size / BUFFER_SIZE;
-	long remainder_size = file_size % BUFFER_SIZE; 
+	long buffer_size = BUFFER_SIZE;
+	int num_chunk = file_size / buffer_size;
+	long remainder_size = file_size % buffer_size; 
 	//long remainder_size = file_size % CHUNK_SIZE; 
 
-	buffer = malloc(BUFFER_SIZE);
+	buffer = malloc(buffer_size);
 
 	for(long i = 0; i < num_chunk; i++){
-		if(fread(buffer, BUFFER_SIZE, 1, fs) == 1) {
-			convert(buffer, BUFFER_SIZE, write_to_arr);
+		if(fread(buffer, buffer_size, 1, fs) == 1) {
+			convert(buffer, buffer_size, write_to_arr);
 		} else {
 			printf("Gone wrong buddy\n");
 		}
@@ -202,12 +198,14 @@ int main(int argc, char *argv[]){
 	k = 0;
 
 	rem_SIZE = 0;
-	read_file(values_filename, false);//False means that we are not writing in an array.(hashmap instead)
+	read_file(values_filename, false);
 
 	rem_SIZE = 0;
 	read_file(keys_filename, true);
 
 	long next_key;
+
+	#pragma omp parallel for private(next_key)
     for(long i = 0; i < k; i++){
     	next_key = keys[i];
     	if (search(values, next_key) != -1 ) {
@@ -215,6 +213,4 @@ int main(int argc, char *argv[]){
 		}	
     }
 
-    free(keys);
-    free(values);
 }
