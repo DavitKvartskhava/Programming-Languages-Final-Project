@@ -1,3 +1,12 @@
+/*By Davit Kvartskhava*/
+////////////////////////
+// Compile with the command gcc -fopenmp sort_load_search_parallel.c -o out -std=c99 -O3 (or -Ofast)
+// 16 cores for fastest performance.(export OMP_NUM_THREADS = 16)
+// Run it with time ./out /cluster/home2/charliep/courses/cs440-languages/billions/1b-ints.dat /cluster/home2/charliep/courses/cs440-languages/billions/1b-search.dat > result.dat
+// Buffer_SIZE = 65536 is recommended because it yields the best results.
+// Result.dat and canon need to be sorted before compared with diff.
+
+/*Imports*/
 #include <omp.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -5,13 +14,9 @@
 #include <errno.h>
 
 const int ARRAY_SIZE = 1000000000;
-// const int ARRAY_SIZE = 2000000;
-// const int HASH_SIZE = 2600000;
-
 const int BUFFER_SIZE = 65536;
 long k;
-char rem[20];
-int rem_SIZE;
+
 
 int int_cmp(const void * a, const void * b)
 {
@@ -98,7 +103,6 @@ void convert(long *arr, char *buffer, int buffer_size){
 
 			if(rem[m] == '-'){
 				next_int *= -1;
-
 			} else {
 				next_int += coeff * (rem[m]-'0');
 				coeff = coeff * 10;
@@ -170,7 +174,7 @@ int main(int argc, char *argv[]){
 	}
 
 	///////////////////
-
+	/*Reading both files*/
 	k = 0;
 	rem_SIZE = 0;
 	read_file(values, values_filename);
@@ -183,6 +187,7 @@ int main(int argc, char *argv[]){
 	long keys_size = k;
 
 
+	/*Parallel quicksort*/
 	#pragma omp parallel default(none) shared(values, values_size)
 	{
 		#pragma omp single nowait
@@ -191,6 +196,7 @@ int main(int argc, char *argv[]){
 
 	long *index;
 
+	/*Going through keys array and checking if next key is in values array.*/
 	#pragma omp parallel for private(index) shared(values_size)
 	for(long i = 0; i < keys_size; i++){
 		index = bsearch(&keys[i], values, values_size, sizeof(long), int_cmp);

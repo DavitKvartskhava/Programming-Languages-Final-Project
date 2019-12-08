@@ -1,10 +1,10 @@
 /*By Davit Kvartskhava*/
 ////////////////////////
-//Compile with the command gcc sort_load_search_fast.c -o out -std=c99 -O3 (or -Ofast)
-//Run it with time ./out /cluster/home2/charliep/courses/cs440-languages/billions/1b-ints.dat /cluster/home2/charliep/courses/cs440-languages/billions/1b-search.dat > result.dat
-//For 1b integers, it's best to use HASH_SIZE = 1b*1.3
-//Buffer_SIZE = 65536 is recommended because it yields the best results.
-//Result.dat and canon need to be sorted before compared with diff.
+// Compile with the command gcc sort_load_search_fast.c -o out -std=c99 -O3 (or -Ofast)
+// Run it with time ./out /cluster/home2/charliep/courses/cs440-languages/billions/1b-ints.dat /cluster/home2/charliep/courses/cs440-languages/billions/1b-search.dat > result.dat
+// For 1b integers, it's best to use HASH_SIZE = 1b*1.3
+// Buffer_SIZE = 65536 is recommended because it yields the best results.
+// Result.dat and canon need to be sorted before compared with diff.
 
 /*Imports*/
 #include<stdio.h>
@@ -41,7 +41,7 @@ struct table *createTable(long size){
     struct table *t = (struct table*)malloc(sizeof(struct table));
     t->size = size;
     t->list = (struct node**)malloc(sizeof(struct node*)*size);
-    int i;
+    long i;
     for(i=0;i<size;i++)
         t->list[i] = NULL;
     return t;
@@ -53,7 +53,7 @@ int hashCode(struct table *t,long key){
 }
 
 void insert(struct table *t,long key){
-    int pos = hashCode(t,key);
+    long pos = hashCode(t,key);
     struct node *list = t->list[pos];
     struct node *newNode = (struct node*)malloc(sizeof(struct node));
     struct node *temp = list;
@@ -70,10 +70,9 @@ void insert(struct table *t,long key){
 
 //If successful return 1, else return -1
 int search(struct table *t, long key){
-    int pos = hashCode(t,key);
+    long pos = hashCode(t,key);
     struct node *list = t->list[pos];
     struct node *temp = t->list[pos];
-    // struct node *temp = t->list[pos];
     while(temp){
         if(temp->key==key){
             return 1;
@@ -162,10 +161,8 @@ void read_file(char *filename, bool write_to_arr){
 
 	//Buffer determined by file size. Remainder bytes also assigned below.
 
-	// long buffer_size = file_size/CHUNK_SIZE;
 	int num_chunk = file_size / BUFFER_SIZE;
 	long remainder_size = file_size % BUFFER_SIZE; 
-	//long remainder_size = file_size % CHUNK_SIZE; 
 
 	buffer = malloc(BUFFER_SIZE);
 
