@@ -3,79 +3,66 @@
 #include<stdlib.h>
 #include<string.h>
 #include <errno.h>
-#include <stdbool.h>
 
-// const int ARRAY_SIZE = 1000000000;
-// const int HASH_SIZE = 1300000000;
-const int ARRAY_SIZE = 2000000;
-const int HASH_SIZE = 2600000;
+const int ARRAY_SIZE = 1000000000;
+// const int ARRAY_SIZE = 2000000;
+// const int HASH_SIZE = 2600000;
 
-const int BUFFER_SIZE = 32768;
+const int BUFFER_SIZE = 65536;
 long k;
-struct table *values;
-long *keys;
 char rem[20];
 int rem_SIZE;
 
-///////////////////////////////////////////////////////////////////
-////////HASHMAP////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////
-struct node{
-    long key;
-    int val;
-    struct node *next;
-};
-struct table{
-    long size;
-    struct node **list;
-};
-struct table *createTable(long size){
-    struct table *t = (struct table*)malloc(sizeof(struct table));
-    t->size = size;
-    t->list = (struct node**)malloc(sizeof(struct node*)*size);
-    int i;
-    for(i=0;i<size;i++)
-        t->list[i] = NULL; //could parallelize this
-    return t;
-}
-int hashCode(struct table *t,long key){
-    if(key<0)
-        return -(key%t->size);
-    return key%t->size;
+int int_cmp(const void * a, const void * b)
+{
+    if( *(long long int*)a - *(long long int*)b < 0 )
+        return -1;
+    if( *(long long int*)a - *(long long int*)b > 0 )
+        return 1;
+    return 0;
 }
 
-void insert(struct table *t,long key,int val){
-    int pos = hashCode(t,key);
-    struct node *list = t->list[pos];
-    struct node *newNode = (struct node*)malloc(sizeof(struct node));
-    struct node *temp = list;
-    while(temp){
-        if(temp->key==key){
-            temp->val = val;
-            return;
-        }
-        temp = temp->next;
-    }
-    newNode->key = key;
-    newNode->val = val;
-    newNode->next = list;
-    t->list[pos] = newNode;
+//Helper funct for quicksort
+//Moves all elems <= pivot to the left, and all all the elems > pivot to the right.
+//Returns the index of the current pivot.
+long partition(long *arr, long low, long high){ 
+	long wall = low - 1;
+	long pivot = arr[high];
+
+	for(int i = low; i <= high; i++){
+	 	if (arr[i] <= pivot){
+
+	 		wall++;
+
+	 		long temp = arr[wall];
+	 		arr[wall] = arr[i];
+	 		arr[i] = temp;
+	 	 }
+	 }
+	 return wall;
 }
-int search(struct table *t, long key){
-    int pos = hashCode(t,key);
-    struct node *list = t->list[pos];
-    struct node *temp = list;
-    while(temp){
-        if(temp->key==key){
-            return temp->val;
-        }
-        temp = temp->next;
-    }
-    return -1;
+
+//Actual quicksort algorithm.
+//Using recursion.
+void quicksort(long *arr, long low, long high){
+	if (low < high) {
+		long wall = partition(arr, low, high);
+		
+		#pragma omp task default(none) firstprivate(arr, low, wall)
+		quicksort(arr, low, wall - 1); // omit index wall, because the number belongs there.
+
+		#pragma omp task default(none) firstprivate(arr, high, wall)
+		quicksort(arr, wall + 1, high);
+	}
+	return;
 }
+
 /////////////////////////////////////////////////////////////////
 
-void convert(char *buffer, int buffer_size, bool write_to_arr){
+char rem[20];
+int rem_SIZE;
+
+void convert(long *arr, char *buffer, int buffer_size){
 	long next_int = 0;
 	long coeff = 1;
 	char curr_rem[12];
@@ -90,11 +77,7 @@ void convert(char *buffer, int buffer_size, bool write_to_arr){
 	while(i > 0) {
 		i--;
 		if(buffer[i] == '\n'){
-			if(write_to_arr) {
-				keys[k++] = next_int;
-			} else {
-				insert(values, next_int, 1);
-			}	
+			arr[k++]= next_int;
 			next_int = 0;
 			coeff = 1;
 		} else {
@@ -122,13 +105,9 @@ void convert(char *buffer, int buffer_size, bool write_to_arr){
 			}
 		}
 	}
+	arr[k++] = next_int;
 
-	if(write_to_arr) {
-		keys[k++] = next_int;
-	} else {
-		insert(values, next_int, 1);
-	}
-
+	// ////////////////
 	// Based on remainder, fill rem array
 	// ////////////////
 	i = buffer_size-1;
@@ -138,7 +117,7 @@ void convert(char *buffer, int buffer_size, bool write_to_arr){
 	rem_SIZE = l; //l is incremented already
 }
 
-void read_file(char *filename, bool write_to_arr){
+void read_file(long *arr, char *filename){
 	FILE *fs;
 	char *buffer;
 
@@ -151,41 +130,35 @@ void read_file(char *filename, bool write_to_arr){
 	long file_size = ftell(fs);
 	fseek(fs, 0L, SEEK_SET);
 
-	//Buffer determined by file size. Remainder bytes also assigned below.
-
-	// long buffer_size = file_size/CHUNK_SIZE;
-	long buffer_size = BUFFER_SIZE;
-	int num_chunk = file_size / buffer_size;
-	long remainder_size = file_size % buffer_size; 
+	int num_chunk = file_size / BUFFER_SIZE;
+	long remainder_size = file_size % BUFFER_SIZE; 
 	//long remainder_size = file_size % CHUNK_SIZE; 
 
-	buffer = malloc(buffer_size);
+	buffer = malloc(BUFFER_SIZE);
 
-	for(long i = 0; i < num_chunk; i++){
-		if(fread(buffer, buffer_size, 1, fs) == 1) {
-			convert(buffer, buffer_size, write_to_arr);
+	for(int i = 0; i < num_chunk; i++){
+		if(fread(buffer, BUFFER_SIZE, 1, fs) == 1) {
+			convert(arr, buffer, BUFFER_SIZE);
 		} else {
 			printf("Gone wrong buddy\n");
 		}
 	}
 
-	//Read the rest of the file.
+	//REad the rest of the file.
     free(buffer);
     buffer = malloc(remainder_size);
-    if (fread(buffer, remainder_size, 1, fs) == 1){ 
-
-    	convert(buffer, remainder_size, write_to_arr);
+    if (fread(buffer, remainder_size, 1, fs) == 1){
+    	convert(arr, buffer, remainder_size);
     }
 
-    free(buffer);
     fclose(fs);
 }
 
 int main(int argc, char *argv[]){
 	char values_filename[128], keys_filename[128];
 
-	keys = malloc(ARRAY_SIZE * sizeof(long));
-	values = createTable(HASH_SIZE);
+	long *values = (long *)malloc(ARRAY_SIZE * sizeof(long));
+	long *keys = (long *)malloc(ARRAY_SIZE * sizeof(long));
 
 	if(argc != 3){
 		fprintf(stderr, "enter both filenames, please\n");
@@ -195,22 +168,36 @@ int main(int argc, char *argv[]){
 		strcpy(keys_filename, argv[2]);
 	}
 
+	///////////////////
+
 	k = 0;
-
 	rem_SIZE = 0;
-	read_file(values_filename, false);
+	read_file(values, values_filename);
+	long values_size = k;
 
+	k = 0;
 	rem_SIZE = 0;
-	read_file(keys_filename, true);
+	read_file(keys, keys_filename);
+	long keys_size = k;
 
-	long next_key;
+	#pragma omp parallel default(none) shared(values, values_size)
+	{
+		#pragma omp single nowait
+		{quicksort(values,0, values_size-1);}
+	}
 
-	#pragma omp parallel for private(next_key, values) //would this cause copying values?
-    for(long i = 0; i < k; i++){
-    	next_key = keys[i];
-    	if (search(values, next_key) != -1 ) {
-			printf("%ld\n", next_key);
-		}	
-    }
+	int *index;
+
+	#pragma omp parallel for private(index) shared(values_size)
+	for(int i = 0; i < keys_size; i++){
+		index = bsearch(&keys[i], values, values_size, sizeof(long), int_cmp);
+		if(index!=NULL){
+			printf("%lld\n", *index);
+		}
+	}
+	#pragma omp barrier
+
+	free(values);
+	free(keys);
 
 }
