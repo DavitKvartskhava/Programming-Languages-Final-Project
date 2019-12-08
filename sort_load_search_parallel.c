@@ -160,6 +160,7 @@ int main(int argc, char *argv[]){
 	long *values = (long *)malloc(ARRAY_SIZE * sizeof(long));
 	long *keys = (long *)malloc(ARRAY_SIZE * sizeof(long));
 
+
 	if(argc != 3){
 		fprintf(stderr, "enter both filenames, please\n");
 		return -1;
@@ -175,10 +176,12 @@ int main(int argc, char *argv[]){
 	read_file(values, values_filename);
 	long values_size = k;
 
+
 	k = 0;
 	rem_SIZE = 0;
 	read_file(keys, keys_filename);
 	long keys_size = k;
+
 
 	#pragma omp parallel default(none) shared(values, values_size)
 	{
@@ -186,10 +189,10 @@ int main(int argc, char *argv[]){
 		{quicksort(values,0, values_size-1);}
 	}
 
-	int *index;
+	long *index;
 
 	#pragma omp parallel for private(index) shared(values_size)
-	for(int i = 0; i < keys_size; i++){
+	for(long i = 0; i < keys_size; i++){
 		index = bsearch(&keys[i], values, values_size, sizeof(long), int_cmp);
 		if(index!=NULL){
 			printf("%lld\n", *index);
